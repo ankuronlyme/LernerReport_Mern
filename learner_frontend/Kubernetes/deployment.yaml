@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lerner-frontend-deploy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lerner-frontend
+  template:
+    metadata:
+      labels:
+        app: lerner-frontend
+    spec:
+      containers:
+      - name: lerner-frontend
+        image: ankuronlyme/leraner_frontend
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        ports:
+        - containerPort: 3000
