@@ -6,14 +6,15 @@ pipeline {
         DOCKER_IMAGE_FRONTEND = 'ankuronlyme/leraner_frontend'
         DOCKER_IMAGE_BACKEND = 'ankuronlyme/leraner_backend'
         DOCKER_TAG = "${env.BUILD_ID}"
-
+        
         GITHUB_URL = 'https://github.com/ankuronlyme/LernerReport_Mern.git'
         GIT_BRANCH = 'main'
         
         HELM_CHART_PATH_BE = './learner-chart/backend-chart'
         HELM_CHART_PATH_FE = './learner-chart/frontend-chart'
-        AWS_REGION = 'us-east-1'
-    // AWS_EKS_CLUSTER_NAME = 'ankur-eks-cluster-jenkins'
+        AWS_REGION = 'eu-north-1'
+        AWS_EKS_CLUSTER_NAME = 'ankur-eks-cluster-jenkins'
+        Aws_Credentials = 'Rootawskey'
     }
     
     stages {
@@ -22,7 +23,7 @@ pipeline {
                 git branch: env.GIT_BRANCH, url: env.GITHUB_URL
             }
         }
-  stage('Build Docker Image') {
+        stage('Build Docker Image') {
             parallel {
                 stage('build backend') {
                     steps {
@@ -45,20 +46,37 @@ pipeline {
                         }
                     }
                 }
-             stage('Connect to EKS') {
+            }
+        }
+        stage('Connect to EKS') {
             steps {
                 script {
-                    withCredentials([aws(credentialsId: 'aws-config', region: env.AWS_REGION)]) {
+                    withCredentials([aws(credentialsId: 'Rootawskey', region: env.AWS_REGION)]) {
                         def eksClusterExists = bat(script: "aws eks describe-cluster --name ${env.AWS_EKS_CLUSTER_NAME} --region ${env.AWS_REGION}", 
-                                                   returnStatus: true) == 0
-                        if (!eksClusterExists) {
+                                                  returnStatus: true) == 0
+                         if (!eksClusterExists) {
                             bat """
-                            eksctl create cluster --name ${env.AWS_EKS_CLUSTER_NAME} --region ${env.AWS_REGION} --nodegroup-name standard-workers --node-type t2.micro --nodes 2 --nodes-min 1 --nodes-max 3
+                            eksctl create cluster --name ${env.AWS_EKS_CLUSTER_NAME} --region ${env.AWS_REGION} --nodegroup-name standard-workers --node-type t3.micro --nodes 2 --nodes-min 1 --nodes-max 3
                             """
                         }
                     }
                 }
             }
-             }
+        }
+        stage ('deploy to eks') {
+            steps {
+                script {
+                    withCredentials([aws(credentialsId: 'Rootawskey', region: env.AWS_REGION )]) {
+                        // Delete Helm releases
+                        // bat "helm --uninstall ${env.HELM_RELEASE_NAME_BE}"
+                        // bat "helm --uninstall ${env.HELM_RELEASE_NAME_FE}"
+                        
+                        bat "aws eks --region ${env.AWS_REGION} update-kubeconfig --name ${env.AWS_EKS_CLUSTER_NAME}"
+                        bat "helm upgrade --install --set image.tag=${env.DOCKER_TAG} ${env.HELM_RELEASE_NAME_BE} ${env.HELM_CHART_PATH_BE}"
+                        bat "helm upgrade --install --set image.tag=${env.DOCKER_TAG} ${env.HELM_RELEASE_NAME_FE} ${env.HELM_CHART_PATH_FE}"
+                    }
+                }
             }
-  }
+        }
+    }
+}
