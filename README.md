@@ -1,6 +1,5 @@
 #LernerReport_Mern
 
-
 # Create Git Repository
 # Clone the repository
 # Run frontend & backend on the local system
